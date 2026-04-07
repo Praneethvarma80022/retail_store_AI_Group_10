@@ -1,0 +1,149 @@
+{
+  "products": [
+    {
+      "id": "product-1",
+      "name": "Wireless Charger",
+      "normalizedName": "wireless charger",
+      "sku": "WIRELESS-CHARGER",
+      "category": "Power",
+      "reorderLevel": 6,
+      "quantity": 14,
+      "price": 1499,
+      "totalPrice": 20986,
+      "createdAt": "2026-03-17T15:24:32.063Z",
+      "updatedAt": "2026-04-06T15:24:32.063Z"
+    },
+    {
+      "id": "product-2",
+      "name": "USB-C Cable",
+      "normalizedName": "usb-c cable",
+      "sku": "USB-C-CABLE",
+      "category": "Power",
+      "reorderLevel": 8,
+      "quantity": 33,
+      "price": 399,
+      "totalPrice": 13167,
+      "createdAt": "2026-03-20T15:24:32.063Z",
+      "updatedAt": "2026-04-07T03:24:32.063Z"
+    },
+    {
+      "id": "product-3",
+      "name": "Bluetooth Earbuds",
+      "normalizedName": "bluetooth earbuds",
+      "sku": "BLUETOOTH-EARBUDS",
+      "category": "Audio",
+      "reorderLevel": 4,
+      "quantity": 8,
+      "price": 2199,
+      "totalPrice": 17592,
+      "createdAt": "2026-03-24T15:24:32.063Z",
+      "updatedAt": "2026-04-05T15:24:32.063Z"
+    },
+    {
+      "id": "product-4",
+      "name": "Phone Case",
+      "normalizedName": "phone case",
+      "sku": "PHONE-CASE",
+      "category": "Protection",
+      "reorderLevel": 10,
+      "quantity": 28,
+      "price": 599,
+      "totalPrice": 16772,
+      "createdAt": "2026-03-18T15:24:32.063Z",
+      "updatedAt": "2026-04-04T15:24:32.063Z"
+    },
+    {
+      "id": "product-5",
+      "name": "Screen Protector",
+      "normalizedName": "screen protector",
+      "sku": "SCREEN-PROTECTOR",
+      "category": "Protection",
+      "reorderLevel": 6,
+      "quantity": 5,
+      "price": 299,
+      "totalPrice": 1495,
+      "createdAt": "2026-03-27T15:24:32.063Z",
+      "updatedAt": "2026-04-06T15:24:32.063Z"
+    },
+    {
+      "id": "product-6",
+      "name": "Power Bank",
+      "normalizedName": "power bank",
+      "sku": "POWER-BANK",
+      "category": "Power",
+      "reorderLevel": 5,
+      "quantity": 3,
+      "price": 1799,
+      "totalPrice": 5397,
+      "createdAt": "2026-03-28T15:24:32.063Z",
+      "updatedAt": "2026-04-06T21:24:32.063Z"
+    }
+  ],
+  "sales": [
+    {
+      "id": "sale-1",
+      "customerName": "Aarav Singh",
+      "mobile": "9876543210",
+      "productId": "product-2",
+      "productName": "USB-C Cable",
+      "quantity": 2,
+      "unitPrice": 399,
+      "totalPrice": 798,
+      "date": "2026-04-07T11:48:32.063Z",
+      "createdAt": "2026-04-07T11:48:32.063Z",
+      "updatedAt": "2026-04-07T11:48:32.063Z"
+    },
+    {
+      "id": "sale-2",
+      "customerName": "Maya Patel",
+      "mobile": "9988776655",
+      "productId": "product-6",
+      "productName": "Power Bank",
+      "quantity": 1,
+      "unitPrice": 1799,
+      "totalPrice": 1799,
+      "date": "2026-04-06T22:36:32.063Z",
+      "createdAt": "2026-04-06T22:36:32.063Z",
+      "updatedAt": "2026-04-06T22:36:32.063Z"
+    },
+    {
+      "id": "sale-3",
+      "customerName": "Rahul Verma",
+      "mobile": "9123456780",
+      "productId": "product-3",
+      "productName": "Bluetooth Earbuds",
+      "quantity": 1,
+      "unitPrice": 2199,
+      "totalPrice": 2199,
+      "date": "2026-04-06T10:36:32.063Z",
+      "createdAt": "2026-04-06T10:36:32.063Z",
+      "updatedAt": "2026-04-06T10:36:32.063Z"
+    },
+    {
+      "id": "sale-4",
+      "customerName": "Nisha Kapoor",
+      "mobile": "9000011111",
+      "productId": "product-4",
+      "productName": "Phone Case",
+      "quantity": 3,
+      "unitPrice": 599,
+      "totalPrice": 1797,
+      "date": "2026-04-05T05:48:32.063Z",
+      "createdAt": "2026-04-05T05:48:32.063Z",
+      "updatedAt": "2026-04-05T05:48:32.063Z"
+    },
+    {
+      "id": "sale-5",
+      "customerName": "Kabir Khan",
+      "mobile": "9012345678",
+      "productId": "product-1",
+      "productName": "Wireless Charger",
+      "quantity": 2,
+      "unitPrice": 1499,
+      "totalPrice": 2998,
+      "date": "2026-04-03T13:00:32.063Z",
+      "createdAt": "2026-04-03T13:00:32.063Z",
+      "updatedAt": "2026-04-03T13:00:32.063Z"
+    }
+  ]
+}
