@@ -5,6 +5,13 @@ import { useAuth } from "../context/useAuth";
 import api, { getErrorMessage } from "../lib/api";
 import "./LoginPage.css";
 
+// Demo Credentials
+const DEMO_CREDENTIALS = {
+  email: "demo@retail.ai",
+  password: "Demo@123",
+  name: "Demo User"
+};
+
 function loadGoogleScript() {
   return new Promise((resolve, reject) => {
     if (window.google?.accounts?.id) {
@@ -54,6 +61,7 @@ export default function LoginPage() {
   const [showBackupCodes, setShowBackupCodes] = useState(false);
   const [copiedBackupCode, setCopiedBackupCode] = useState(null);
   const [registrationEmail, setRegistrationEmail] = useState("");
+  const [showDemoCode, setShowDemoCode] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -365,6 +373,34 @@ export default function LoginPage() {
     setTimeout(() => setCopiedBackupCode(null), 2000);
   };
 
+  const handleDemoLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSigningIn(true);
+
+    try {
+      // Demo login without backend - create a mock session
+      const demoSession = {
+        token: "demo-token-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9),
+        user: {
+          id: "demo-user-001",
+          email: DEMO_CREDENTIALS.email,
+          name: DEMO_CREDENTIALS.name,
+          role: "admin",
+          createdAt: new Date().toISOString(),
+          isDemo: true
+        }
+      };
+
+      signIn(demoSession);
+      navigate("/", { replace: true });
+    } catch (error) {
+      setError("Demo login failed. Please try again.");
+    } finally {
+      setSigningIn(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="login-page">
@@ -450,7 +486,117 @@ export default function LoginPage() {
                 <div className="divider-line"></div>
               </div>
 
+              <div className="divider-container">
+                <div className="divider-line"></div>
+                <span className="divider-text">Or</span>
+                <div className="divider-line"></div>
+              </div>
+
               <div ref={googleButtonRef} className="google-button-container"></div>
+
+              <div className="divider-container">
+                <div className="divider-line"></div>
+                <span className="divider-text">Demo Login</span>
+                <div className="divider-line"></div>
+              </div>
+
+              <div className="demo-login-section">
+                <div className="demo-credentials-box">
+                  <p className="demo-label">📋 Demo Credentials</p>
+                  <div className="demo-credential-item">
+                    <span className="demo-key">Email:</span>
+                    <span className="demo-value">{DEMO_CREDENTIALS.email}</span>
+                  </div>
+                  <div className="demo-credential-item">
+                    <span className="demo-key">Password:</span>
+                    <span className="demo-value">{DEMO_CREDENTIALS.password}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDemoLogin}
+                    disabled={signingIn}
+                    className="btn btn-demo"
+                  >
+                    {signingIn ? (
+                      <>
+                        <span className="loading-spinner"></span>
+                        Demo Login...
+                      </>
+                    ) : (
+                      "🚀 Quick Demo Login"
+                    )}
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowDemoCode(!showDemoCode)}
+                  className="demo-code-toggle"
+                >
+                  {showDemoCode ? "Hide" : "Show"} Demo Authentication Code
+                </button>
+
+                {showDemoCode && (
+                  <div className="demo-code-section">
+                    <p className="demo-code-title">Authentication Code Snippet:</p>
+                    <pre className="demo-code-block">{`// Demo Login Handler - No Backend Required
+const handleDemoLogin = async (e) => {
+  e.preventDefault();
+  
+  // Create a mock session without backend calls
+  const demoSession = {
+    token: "demo-token-" + Date.now(),
+    user: {
+      id: "demo-user-001",
+      email: "${DEMO_CREDENTIALS.email}",
+      name: "${DEMO_CREDENTIALS.name}",
+      role: "admin",
+      isDemo: true
+    }
+  };
+  
+  // Sign in with demo session
+  signIn(demoSession);
+  navigate("/", { replace: true });
+};
+
+// Usage Example:
+// <button onClick={handleDemoLogin}>
+//   Demo Login
+// </button>`}</pre>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const codeText = `// Demo Login Handler - No Backend Required
+const handleDemoLogin = async (e) => {
+  e.preventDefault();
+  
+  // Create a mock session without backend calls
+  const demoSession = {
+    token: "demo-token-" + Date.now(),
+    user: {
+      id: "demo-user-001",
+      email: "${DEMO_CREDENTIALS.email}",
+      name: "${DEMO_CREDENTIALS.name}",
+      role: "admin",
+      isDemo: true
+    }
+  };
+  
+  // Sign in with demo session
+  signIn(demoSession);
+  navigate("/", { replace: true });
+};`;
+                        navigator.clipboard.writeText(codeText);
+                        alert("Code copied to clipboard!");
+                      }}
+                      className="demo-copy-btn"
+                    >
+                      📋 Copy Code
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="auth-switch">
                 <p className="auth-switch-text">

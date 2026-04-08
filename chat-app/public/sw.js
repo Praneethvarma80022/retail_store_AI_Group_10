@@ -48,9 +48,11 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok) {
+          // Clone before using the response
+          if (response.ok && response.status === 200) {
+            const responseClone = response.clone();
             caches.open(API_CACHE).then((cache) => {
-              cache.put(request, response.clone());
+              cache.put(request, responseClone);
             });
           }
           return response;
@@ -76,9 +78,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.match(request).then((response) => {
         return response || fetch(request).then((response) => {
-          if (response.ok) {
+          if (response.ok && response.status === 200) {
+            const responseClone = response.clone();
             caches.open(RUNTIME_CACHE).then((cache) => {
-              cache.put(request, response.clone());
+              cache.put(request, responseClone);
             });
           }
           return response;
@@ -92,9 +95,10 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (response.ok && request.method === 'GET') {
+        if (response.ok && response.status === 200 && request.method === 'GET') {
+          const responseClone = response.clone();
           caches.open(RUNTIME_CACHE).then((cache) => {
-            cache.put(request, response.clone());
+            cache.put(request, responseClone);
           });
         }
         return response;
