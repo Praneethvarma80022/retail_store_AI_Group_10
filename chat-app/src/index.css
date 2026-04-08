@@ -2449,6 +2449,558 @@ select option {
   }
 }
 
+/* Enhanced Mobile-First Assistant Page Styles */
+@media (max-width: 900px) {
+  .assistant-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .assistant-side-stack {
+    order: 2;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .chat-card {
+    order: 1;
+    min-height: 60vh;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .prompt-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .capability-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Page Layout */
+  .page-stack {
+    gap: 12px;
+  }
+
+  .assistant-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .assistant-side-stack {
+    gap: 12px;
+  }
+
+  /* Metric Cards */
+  .metric-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .metric-card {
+    padding: 14px;
+    min-height: 100px;
+    border-radius: 14px;
+  }
+
+  .metric-value {
+    font-size: clamp(1.2rem, 2vw, 1.6rem);
+  }
+
+  /* Cards and Sections */
+  .section-card {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .section-title {
+    font-size: 1.1rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* Chat Card Specific */
+  .chat-card .section-content {
+    grid-template-rows: auto minmax(300px, 50vh) auto;
+    gap: 12px;
+  }
+
+  .chat-context-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .context-pill {
+    padding: 10px;
+    font-size: 0.8rem;
+  }
+
+  /* Prompt Grid */
+  .prompt-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+  }
+
+  .prompt-chip {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    border-radius: 10px;
+    min-height: 40px;
+    white-space: normal;
+    word-wrap: break-word;
+  }
+
+  /* Capabilities */
+  .capability-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .capability-card {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .capability-card h4 {
+    font-size: 0.95rem;
+    margin: 0 0 4px;
+  }
+
+  .capability-card p {
+    font-size: 0.85rem;
+    margin: 0;
+  }
+
+  /* Chat Form */
+  .chat-form {
+    gap: 10px;
+  }
+
+  .chat-input {
+    min-height: 80px;
+    font-size: 16px;
+    padding: 12px;
+  }
+
+  .chat-form-footer {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .chat-form-footer p {
+    font-size: 0.75rem;
+    margin: 0;
+  }
+
+  .chat-composer-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .chat-composer-actions button {
+    flex: 1;
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  /* Chat Messages */
+  .chat-stream {
+    padding: 8px 4px 8px 0;
+  }
+
+  .chat-bubble {
+    max-width: 95%;
+    padding: 12px 14px;
+    border-radius: 16px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .chat-role {
+    margin-bottom: 6px;
+    font-size: 0.7rem;
+  }
+
+  .chat-message-body {
+    gap: 8px;
+  }
+
+  .chat-message-body p {
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .chat-list {
+    gap: 6px;
+    padding-left: 16px;
+  }
+
+  .chat-list li {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .chat-meta {
+    margin-top: 8px;
+  }
+
+  .chat-meta-pill {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+  }
+
+  /* Buttons */
+  .button {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    border-radius: 8px;
+  }
+
+  .button-group {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .section-button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .section-button-group button {
+    width: 100%;
+    min-height: 40px;
+    font-size: 0.85rem;
+  }
+
+  /* Guidance Section */
+  .assistant-guidance {
+    gap: 10px;
+  }
+
+  .assistant-guidance-row {
+    padding: 10px;
+    font-size: 0.85rem;
+    gap: 8px;
+  }
+
+  .assistant-guidance-row strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.8rem;
+  }
+
+  .assistant-guidance-row span {
+    font-size: 0.8rem;
+    opacity: 0.9;
+  }
+
+  /* Voice Panel */
+  .chat-voice-panel {
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+  }
+
+  .chat-voice-status {
+    font-size: 0.8rem;
+    margin: 0 0 4px;
+  }
+
+  .chat-voice-preview {
+    font-size: 0.8rem;
+    margin: 0;
+  }
+
+  /* Typing Indicator */
+  .typing-dots {
+    gap: 6px;
+  }
+
+  .typing-dots span {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Very Small Mobile */
+  .app-shell {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .page-stack,
+  .dashboard-stack {
+    gap: 10px;
+  }
+
+  .assistant-layout {
+    gap: 10px;
+  }
+
+  .assistant-side-stack {
+    gap: 10px;
+  }
+
+  /* Reduce All Padding */
+  .section-card,
+  .sidebar.card-surface,
+  .metric-card {
+    padding: 12px;
+  }
+
+  .metric-card {
+    min-height: 90px;
+    border-radius: 12px;
+  }
+
+  .metric-label {
+    font-size: 0.75rem;
+  }
+
+  .metric-value {
+    font-size: clamp(1.1rem, 1.8vw, 1.4rem);
+    margin-top: 8px;
+  }
+
+  /* Section Titles */
+  .section-title {
+    font-size: 1rem;
+  }
+
+  .section-header {
+    margin-bottom: 10px;
+  }
+
+  /* Prompt Chips */
+  .prompt-grid {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 6px;
+  }
+
+  .prompt-chip {
+    padding: 8px 10px;
+    font-size: 0.75rem;
+    min-height: 36px;
+    border-radius: 8px;
+  }
+
+  /* Chat Interface */
+  .chat-card .section-content {
+    grid-template-rows: auto minmax(250px, 45vh) auto;
+    gap: 10px;
+  }
+
+  .chat-context-bar {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .context-pill {
+    padding: 8px;
+    font-size: 0.75rem;
+    gap: 4px;
+  }
+
+  .context-pill span {
+    display: inline;
+  }
+
+  /* Chat Stream */
+  .chat-stream {
+    padding: 6px 2px 8px 0;
+    gap: 8px;
+  }
+
+  .chat-bubble {
+    max-width: 96%;
+    padding: 10px 12px;
+    border-radius: 14px;
+    font-size: 0.85rem;
+  }
+
+  .chat-message-body {
+    gap: 6px;
+  }
+
+  .chat-message-body p {
+    margin: 0;
+  }
+
+  .chat-heading {
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .chat-list {
+    gap: 4px;
+    padding-left: 14px;
+    margin: 4px 0 0;
+  }
+
+  .chat-list li {
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+
+  /* Input Area */
+  .chat-form {
+    gap: 8px;
+  }
+
+  .chat-input {
+    min-height: 72px;
+    font-size: 16px;
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .chat-form-footer {
+    gap: 6px;
+  }
+
+  .chat-form-footer p {
+    font-size: 0.7rem;
+    line-height: 1.3;
+  }
+
+  .chat-composer-actions {
+    gap: 6px;
+  }
+
+  .chat-composer-actions button {
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  /* Buttons */
+  .button,
+  .button-ghost,
+  .button-secondary {
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    border-radius: 8px;
+  }
+
+  .section-button-group button {
+    min-height: 36px;
+    font-size: 0.8rem;
+  }
+
+  /* Quick Panel */
+  .quick-panel {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .quick-panel h3 {
+    font-size: 0.95rem;
+    margin: 0 0 8px;
+  }
+
+  /* Guidance */
+  .assistant-guidance {
+    gap: 8px;
+  }
+
+  .assistant-guidance-row {
+    padding: 8px;
+    font-size: 0.8rem;
+    gap: 6px;
+  }
+
+  .assistant-guidance-row strong {
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+  }
+
+  .assistant-guidance-row span {
+    font-size: 0.75rem;
+  }
+
+  /* Meta Pills */
+  .chat-meta-pill,
+  .meta-pill,
+  .context-pill {
+    font-size: 0.7rem;
+    padding: 4px 6px;
+  }
+}
+
+@media (max-height: 600px) and (orientation: landscape) {
+  /* Landscape Mode Optimizations */
+  .page-stack {
+    gap: 8px;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px;
+  }
+
+  .metric-card {
+    min-height: 80px;
+    padding: 12px;
+  }
+
+  .chat-card .section-content {
+    grid-template-rows: auto minmax(200px, 30vh) auto;
+    gap: 10px;
+  }
+
+  .section-card {
+    padding: 10px;
+  }
+
+  .prompt-grid {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 6px;
+  }
+}
+
+/* iOS Specific Fixes */
+@supports (-webkit-touch-callout: none) {
+  body {
+    /* iOS height fix */
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .chat-input {
+    font-size: 16px;
+    /* Prevents zoom on focus */
+  }
+
+  .button,
+  .prompt-chip,
+  .chat-composer-actions button {
+    -webkit-appearance: none;
+    border-radius: 8px;
+  }
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding: 12px;

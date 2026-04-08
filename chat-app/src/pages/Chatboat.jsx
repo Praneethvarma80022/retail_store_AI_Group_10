@@ -1,17 +1,29 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import "./Chatboat.css";
 
 const Chatbot = () => {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const chatEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Auto scroll
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chat, loading]);
+
+  // Auto-expand textarea
+  const handleInputChange = (e) => {
+    setMessage(e.target.value);
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 100) + "px";
+    }
+  };
 
   // Typing animation (typewriter effect)
   const typeText = (text, callback) => {
@@ -31,7 +43,7 @@ const Chatbot = () => {
   };
 
   const sendMessage = async () => {
-    if (!message) return;
+    if (!message.trim()) return;
 
     const userMsg = { sender: "user", text: message };
     setChat((prev) => [...prev, userMsg]);
@@ -56,45 +68,55 @@ const Chatbot = () => {
 
     } catch (err) {
       console.log(err);
+      const errorMsg = { sender: "bot", text: "Sorry, I couldn't process your request. Please try again." };
+      setChat((prev) => [...prev, errorMsg]);
     }
 
     setMessage("");
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+    }
     setLoading(false);
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center items-center p-4">
+    <div className="chatbot-container">
       
-      <div className="w-full max-w-3xl bg-white shadow-xl rounded-2xl flex flex-col h-[85vh]">
+      <div className="chatbot-wrapper">
         
         {/* Header */}
-        <div className="p-4 border-b text-lg font-semibold text-gray-800 flex justify-between">
-          <span>Retail AI Assistant</span>
-          <span className="text-sm text-green-500">● Online</span>
+        <div className="chatbot-header">
+          <div className="chatbot-header-content">
+            <h1 className="chatbot-title">Retail AI Assistant</h1>
+            <span className="chatbot-status">● Online</span>
+          </div>
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="chatbot-messages">
           
           {chat.length === 0 && (
-            <p className="text-center text-gray-400">
-              Ask anything about your store...
-            </p>
+            <div className="chatbot-empty-state">
+              <div className="empty-icon">💬</div>
+              <p className="empty-text">Ask anything about your store...</p>
+              <p className="empty-subtext">Get insights on sales, inventory, and more</p>
+            </div>
           )}
 
           {chat.map((msg, index) => (
             <div
               key={index}
-              className={`flex ${
-                msg.sender === "user" ? "justify-end" : "justify-start"
-              }`}
+              className={`chatbot-message-wrapper ${msg.sender}`}
             >
               <div
-                className={`px-4 py-2 rounded-2xl max-w-sm break-words shadow ${
-                  msg.sender === "user"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200 text-gray-800"
-                }`}
+                className={`chatbot-message-bubble ${msg.sender}`}
               >
                 {msg.text}
               </div>
@@ -103,34 +125,42 @@ const Chatbot = () => {
 
           {/* Typing Indicator */}
           {loading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-200 px-4 py-2 rounded-2xl shadow flex gap-1">
-                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></span>
-                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-150"></span>
-                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-300"></span>
+            <div className="chatbot-message-wrapper bot">
+              <div className="chatbot-typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
               </div>
             </div>
           )}
 
-          <div ref={chatEndRef}></div>
+          <div ref={chatEndRef} className="chatbot-scroll-anchor"></div>
         </div>
 
-        {/* Input */}
-        <div className="p-3 border-t flex gap-2">
-          <input
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Message Retail AI..."
-            className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          />
-
-          <button
-            onClick={sendMessage}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded-full font-medium transition"
-          >
-            Send
-          </button>
+        {/* Input Area */}
+        <div className={`chatbot-input-area ${inputFocused ? "focused" : ""}`}>
+          <div className="chatbot-input-wrapper">
+            <textarea
+              ref={inputRef}
+              value={message}
+              onChange={handleInputChange}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message Retail AI..."
+              className="chatbot-input"
+              rows="1"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={loading || !message.trim()}
+              className="chatbot-send-btn"
+              title="Send message (Enter or Shift+Enter for new line)"
+            >
+              <span className="send-icon">📤</span>
+            </button>
+          </div>
+          <p className="chatbot-input-hint">Press Enter to send, Shift+Enter for new line</p>
         </div>
 
       </div>
