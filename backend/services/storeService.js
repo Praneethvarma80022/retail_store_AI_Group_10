@@ -3,7 +3,7 @@ const Store = require("../models/Store");
 const { normalizeProduct, roundCurrency } = require("../lib/analytics");
 const { isMongoReady } = require("../lib/db");
 const { createHttpError } = require("../lib/errors");
-const { escapeRegex, normalizeText } = require("../lib/validators");
+const { escapeRegex, normalizeText, validateProductPayload } = require("../lib/validators");
 const { createId, readLocalStore, writeLocalStore } = require("./fileStore");
 
 function sortProducts(products) {
@@ -276,10 +276,39 @@ async function deleteProduct(id, options = {}) {
   return normalizeProduct(product);
 }
 
+async function importProducts(rows, options = {}) {
+  const items = Array.isArray(rows) ? rows : [];
+  const summary = {
+    created: 0,
+    restocked: 0,
+    errors: []
+  };
+
+  for (let index = 0; index < items.length; index += 1) {
+    try {
+      const result = await createProduct(validateProductPayload(items[index]), options);
+
+      if (result.action === "restocked") {
+        summary.restocked += 1;
+      } else {
+        summary.created += 1;
+      }
+    } catch (error) {
+      summary.errors.push({
+        row: index + 1,
+        message: error.message || "Unable to import product row."
+      });
+    }
+  }
+
+  return summary;
+}
+
 module.exports = {
   createProduct,
   deleteProduct,
   getProductById,
+  importProducts,
   listAvailableProducts,
   listProducts,
   updateProduct

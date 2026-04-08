@@ -9,7 +9,7 @@ const {
 } = require("./analytics");
 const { normalizeText } = require("./validators");
 
-const HISTORY_DAYS = 14;
+const HISTORY_DAYS = 21;
 const FORECAST_DAYS = 7;
 const NOISE_PRODUCT_PATTERN = /\b(codex|verify product|test accessory|debug product|sample item)\b/i;
 
@@ -29,6 +29,18 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function percentChange(current, previous) {
+  if (!previous) {
+    return current > 0 ? 100 : 0;
+  }
+
+  return ((current - previous) / previous) * 100;
+}
+
+function isWeekend(date) {
+  return [0, 6].includes(new Date(date).getDay());
+}
+
 function buildDailyBuckets(sales, days = HISTORY_DAYS, startDate = new Date()) {
   const buckets = [];
   const anchor = new Date(startDate);
@@ -42,7 +54,7 @@ function buildDailyBuckets(sales, days = HISTORY_DAYS, startDate = new Date()) {
     buckets.push({
       key: current.toISOString().slice(0, 10),
       date: current.toISOString(),
-      label: current.toLocaleDateString("en-IN", { weekday: "short" }),
+      label: current.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
       revenue: 0,
       orders: 0,
       units: 0
@@ -76,47 +88,123 @@ function buildDailyBuckets(sales, days = HISTORY_DAYS, startDate = new Date()) {
   }));
 }
 
+function buildWeekdayProfile(history) {
+  const profile = new Map(
+    Array.from({ length: 7 }, (_, day) => [
+      day,
+      {
+        revenue: 0,
+        orders: 0,
+        units: 0,
+        count: 0
+      }
+    ])
+  );
+
+  history.forEach((day) => {
+    const weekday = new Date(day.date).getDay();
+    const current = profile.get(weekday);
+    current.revenue += toNumber(day.revenue);
+    current.orders += toNumber(day.orders);
+    current.units += toNumber(day.units);
+    current.count += 1;
+  });
+
+  return profile;
+}
+
 function buildForecast(normalizedSales) {
   const history = buildDailyBuckets(normalizedSales, HISTORY_DAYS);
   const recentWindow = history.slice(-FORECAST_DAYS);
   const previousWindow = history.slice(-FORECAST_DAYS * 2, -FORECAST_DAYS);
+  const weekdayProfile = buildWeekdayProfile(history);
 
   const recentRevenueAverage = average(recentWindow.map((day) => day.revenue));
   const recentOrderAverage = average(recentWindow.map((day) => day.orders));
+  const recentUnitsAverage = average(recentWindow.map((day) => day.units));
   const previousRevenueAverage = average(previousWindow.map((day) => day.revenue));
   const previousOrderAverage = average(previousWindow.map((day) => day.orders));
+  const previousUnitsAverage = average(previousWindow.map((day) => day.units));
   const revenueTrend = recentRevenueAverage - previousRevenueAverage;
   const orderTrend = recentOrderAverage - previousOrderAverage;
+  const unitsTrend = recentUnitsAverage - previousUnitsAverage;
   const revenueVolatility = standardDeviation(recentWindow.map((day) => day.revenue));
+  const volatilityRatio = recentRevenueAverage
+    ? revenueVolatility / recentRevenueAverage
+    : 1;
+  const historySalesDays = history.filter((day) => day.orders > 0).length;
+  const weekendRevenueAverage = average(
+    history.filter((day) => isWeekend(day.date)).map((day) => day.revenue)
+  );
+  const weekdayRevenueAverage = average(
+    history.filter((day) => !isWeekend(day.date)).map((day) => day.revenue)
+  );
+  const weekendUpliftRatio =
+    weekendRevenueAverage && weekdayRevenueAverage
+      ? weekendRevenueAverage / weekdayRevenueAverage
+      : 1;
+  const revenueTrendPercent = percentChange(
+    recentRevenueAverage,
+    previousRevenueAverage
+  );
+  const orderTrendPercent = percentChange(recentOrderAverage, previousOrderAverage);
 
   const confidenceScore = clamp(
-    100 -
-      (recentRevenueAverage ? (revenueVolatility / recentRevenueAverage) * 35 : 40) +
-      recentWindow.filter((day) => day.orders > 0).length * 4,
-    42,
-    92
+    84 - volatilityRatio * 28 + historySalesDays * 1.8 + normalizedSales.length * 0.35,
+    38,
+    94
   );
+  const scenarioSpread = clamp(0.1 + volatilityRatio * 0.14, 0.08, 0.28);
 
   const forecastDays = Array.from({ length: FORECAST_DAYS }, (_, index) => {
     const date = new Date();
     date.setHours(0, 0, 0, 0);
     date.setDate(date.getDate() + index + 1);
 
-    const weekendFactor = [0, 6].includes(date.getDay()) ? 1.08 : 1;
+    const weekdayStats = weekdayProfile.get(date.getDay()) || {
+      revenue: recentRevenueAverage,
+      orders: recentOrderAverage,
+      units: recentUnitsAverage,
+      count: 1
+    };
+    const weekdayRevenueAverageForDay = weekdayStats.count
+      ? weekdayStats.revenue / weekdayStats.count
+      : recentRevenueAverage;
+    const weekdayOrderAverageForDay = weekdayStats.count
+      ? weekdayStats.orders / weekdayStats.count
+      : recentOrderAverage;
+    const weekdayUnitsAverageForDay = weekdayStats.count
+      ? weekdayStats.units / weekdayStats.count
+      : recentUnitsAverage;
+    const trendFactor = 0.18 + index * 0.04;
+    const weekendFactor = isWeekend(date)
+      ? clamp(weekendUpliftRatio || 1, 0.92, 1.16)
+      : 1;
     const projectedRevenue = Math.max(
-      recentRevenueAverage + revenueTrend * 0.35 + revenueTrend * 0.08 * index,
+      recentRevenueAverage * 0.58 +
+        weekdayRevenueAverageForDay * 0.42 +
+        revenueTrend * trendFactor,
       0
     );
     const projectedOrders = Math.max(
-      recentOrderAverage + orderTrend * 0.35 + orderTrend * 0.08 * index,
+      recentOrderAverage * 0.62 +
+        weekdayOrderAverageForDay * 0.38 +
+        orderTrend * trendFactor,
+      0
+    );
+    const projectedUnits = Math.max(
+      recentUnitsAverage * 0.58 +
+        weekdayUnitsAverageForDay * 0.42 +
+        unitsTrend * trendFactor,
       0
     );
 
     return {
       date: date.toISOString(),
-      label: date.toLocaleDateString("en-IN", { weekday: "short" }),
+      label: date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" }),
       projectedRevenue: roundCurrency(projectedRevenue * weekendFactor),
-      projectedOrders: Math.max(Math.round(projectedOrders * weekendFactor), 0)
+      projectedOrders: Math.max(Math.round(projectedOrders * weekendFactor), 0),
+      projectedUnits: Math.max(Math.round(projectedUnits * weekendFactor), 0)
     };
   });
 
@@ -127,6 +215,52 @@ function buildForecast(normalizedSales) {
     (sum, day) => sum + day.projectedOrders,
     0
   );
+  const expectedUnits = forecastDays.reduce(
+    (sum, day) => sum + day.projectedUnits,
+    0
+  );
+  const conservativeRevenue = roundCurrency(expectedRevenue * (1 - scenarioSpread));
+  const optimisticRevenue = roundCurrency(expectedRevenue * (1 + scenarioSpread));
+  const conservativeOrders = Math.max(
+    Math.round(expectedOrders * (1 - scenarioSpread * 0.85)),
+    0
+  );
+  const optimisticOrders = Math.max(
+    Math.round(expectedOrders * (1 + scenarioSpread * 0.85)),
+    0
+  );
+  const activeHistoryDays = history.filter((day) => day.orders > 0);
+  const topHistoryDay =
+    [...activeHistoryDays].sort((left, right) => right.revenue - left.revenue)[0] || null;
+  const lowHistoryDay =
+    [...activeHistoryDays].sort((left, right) => left.revenue - right.revenue)[0] || null;
+  const risks = [];
+  const recommendations = [];
+
+  if (!normalizedSales.length) {
+    risks.push("Forecast confidence is limited because there are no completed sales in history yet.");
+    recommendations.push("Record a few real sales first so the forecast can learn demand patterns.");
+  }
+
+  if (historySalesDays < 5 && normalizedSales.length) {
+    risks.push("Sales history is still sparse, so the forecast should be treated as directional guidance.");
+  }
+
+  if (volatilityRatio >= 0.9) {
+    risks.push("Daily revenue is highly volatile, so the range between conservative and optimistic scenarios is wider.");
+  }
+
+  if (revenueTrendPercent > 8) {
+    recommendations.push("Recent demand is improving, so prepare inventory and staffing for a stronger next week.");
+  } else if (revenueTrendPercent < -8) {
+    recommendations.push("Demand has softened versus the previous week, so review promotions and follow-up campaigns.");
+  } else {
+    recommendations.push("Demand is stable, so use the base forecast as an operating benchmark for the next week.");
+  }
+
+  recommendations.push(
+    "Use the conservative scenario for cash-flow planning and the optimistic scenario for stretch sales targets."
+  );
 
   return {
     history,
@@ -134,14 +268,74 @@ function buildForecast(normalizedSales) {
     summary: {
       expectedRevenue,
       expectedOrders,
+      expectedUnits,
       dailyAverageRevenue: roundCurrency(recentRevenueAverage),
+      dailyAverageOrders: roundCurrency(recentOrderAverage),
+      dailyAverageUnits: roundCurrency(recentUnitsAverage),
       trendDirection:
-        revenueTrend > 150 ? "upward" : revenueTrend < -150 ? "softening" : "steady",
+        revenueTrendPercent > 8 ? "upward" : revenueTrendPercent < -8 ? "softening" : "steady",
       confidenceScore: Math.round(confidenceScore),
       confidenceLabel:
-        confidenceScore >= 78 ? "High confidence" : confidenceScore >= 62 ? "Moderate confidence" : "Emerging signal",
-      method: "Weighted moving average with recent trend adjustment"
-    }
+        confidenceScore >= 80
+          ? "High confidence"
+          : confidenceScore >= 62
+            ? "Moderate confidence"
+            : "Early signal",
+      method: "Blended weekday baseline with recent trend adjustment",
+      baselineWindow: `${HISTORY_DAYS} days`,
+      dataCoveragePercent: Math.round((historySalesDays / Math.max(HISTORY_DAYS, 1)) * 100),
+      revenueRange: {
+        low: conservativeRevenue,
+        high: optimisticRevenue
+      },
+      orderRange: {
+        low: conservativeOrders,
+        high: optimisticOrders
+      }
+    },
+    breakdown: {
+      recentAverageRevenue: roundCurrency(recentRevenueAverage),
+      previousAverageRevenue: roundCurrency(previousRevenueAverage),
+      recentAverageOrders: roundCurrency(recentOrderAverage),
+      previousAverageOrders: roundCurrency(previousOrderAverage),
+      revenueTrendAmount: roundCurrency(revenueTrend),
+      revenueTrendPercent: roundCurrency(revenueTrendPercent),
+      orderTrendPercent: roundCurrency(orderTrendPercent),
+      weekendUpliftPercent: roundCurrency((weekendUpliftRatio - 1) * 100),
+      volatilityPercent: roundCurrency(volatilityRatio * 100),
+      daysWithSales: historySalesDays,
+      totalHistoryDays: HISTORY_DAYS,
+      topHistoryDay,
+      lowHistoryDay
+    },
+    scenarios: [
+      {
+        name: "Conservative",
+        revenue: conservativeRevenue,
+        orders: conservativeOrders,
+        note: "Use this for cautious planning when demand is uncertain."
+      },
+      {
+        name: "Base",
+        revenue: expectedRevenue,
+        orders: expectedOrders,
+        note: "This is the main planning scenario based on current momentum."
+      },
+      {
+        name: "Optimistic",
+        revenue: optimisticRevenue,
+        orders: optimisticOrders,
+        note: "Use this as an upside target if recent momentum continues."
+      }
+    ],
+    methodology: [
+      `The model studies the last ${HISTORY_DAYS} days of completed sales to build a daily demand baseline.`,
+      "It compares the most recent 7 days with the previous 7 days to detect short-term growth or slowdown.",
+      "It blends recent averages with same-weekday behavior so weekday and weekend patterns are reflected in the forecast.",
+      "Confidence is reduced when sales are sparse or highly volatile, and increased when the data is consistent."
+    ],
+    risks,
+    recommendations
   };
 }
 
@@ -508,6 +702,79 @@ function generateCustomerServiceReply(input, context) {
   return `Hi ${customerName}, ${product.name} is currently ${product.quantity > 0 ? "available" : "out of stock"}${product.quantity > 0 ? ` with ${product.quantity} units ready` : ""} at ${formatCurrency(product.price)}. ${featuredProduct ? `A popular related product right now is ${featuredProduct.name}.` : ""}`;
 }
 
+function buildAlerts(overview, forecast, customerInsights, customerService) {
+  const alerts = [];
+  const todaySales = forecast?.history?.at?.(-1);
+
+  if (overview?.totals?.outOfStockCount > 0) {
+    alerts.push({
+      id: "out-of-stock",
+      tone: "attention",
+      title: "Out-of-stock items need action",
+      description: `${overview.totals.outOfStockCount} products are already out of stock. Restocking them will protect ongoing sales.`,
+      actionLabel: "Open inventory",
+      actionPath: "/store"
+    });
+  }
+
+  if (overview?.totals?.lowStockCount > 0) {
+    alerts.push({
+      id: "low-stock",
+      tone: "attention",
+      title: "Low-stock risk detected",
+      description: `${overview.totals.lowStockCount} items are below the safe stock threshold and should be reviewed soon.`,
+      actionLabel: "Review stock",
+      actionPath: "/store"
+    });
+  }
+
+  if (forecast?.summary?.trendDirection === "softening") {
+    alerts.push({
+      id: "forecast-softening",
+      tone: "attention",
+      title: "Sales forecast is softening",
+      description: `The next 7-day forecast suggests softer demand with ${forecast.summary.confidenceLabel.toLowerCase()}.`,
+      actionLabel: "Open forecast",
+      actionPath: "/forecasting"
+    });
+  }
+
+  if (todaySales && todaySales.orders === 0 && overview?.totals?.totalOrders > 0) {
+    alerts.push({
+      id: "quiet-day",
+      tone: "neutral",
+      title: "No sales recorded today",
+      description: "Today is currently quiet. A quick offer or follow-up campaign could improve same-day orders.",
+      actionLabel: "Open chatbot",
+      actionPath: "/assistant"
+    });
+  }
+
+  if ((customerInsights?.totals?.repeatCustomers || 0) === 0 && overview?.totals?.totalOrders >= 3) {
+    alerts.push({
+      id: "repeat-customers",
+      tone: "neutral",
+      title: "Repeat-buyer retention is low",
+      description: "The store has sales activity, but repeat buyers are still limited. Follow-up automation can help retention.",
+      actionLabel: "Open customer care",
+      actionPath: "/customer-service"
+    });
+  }
+
+  if ((customerService?.totals?.readyTemplates || 0) > 0) {
+    alerts.push({
+      id: "automation-ready",
+      tone: "positive",
+      title: "Customer-service automations are ready",
+      description: `${customerService.totals.readyTemplates} response templates are prepared from live store data for faster support replies.`,
+      actionLabel: "Open customer care",
+      actionPath: "/customer-service"
+    });
+  }
+
+  return alerts.slice(0, 5);
+}
+
 function buildRetailIntelligenceSummary(products = [], sales = []) {
   const normalizedProducts = products
     .filter((product) => !NOISE_PRODUCT_PATTERN.test(product.name || ""))
@@ -534,7 +801,8 @@ function buildRetailIntelligenceSummary(products = [], sales = []) {
     forecast,
     productRecommendations,
     customerInsights,
-    customerService
+    customerService,
+    alerts: buildAlerts(overview, forecast, customerInsights, customerService)
   };
 }
 

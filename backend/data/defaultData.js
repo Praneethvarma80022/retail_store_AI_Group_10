@@ -4,6 +4,8 @@ function daysAgo(days) {
 
 function createDefaultData() {
   return {
+    userProfiles: [],
+    chatMessages: [],
     products: [
       {
         id: "product-1",

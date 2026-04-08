@@ -26,6 +26,8 @@ async function readLocalStore() {
   const data = JSON.parse(raw);
 
   return {
+    userProfiles: Array.isArray(data.userProfiles) ? data.userProfiles : [],
+    chatMessages: Array.isArray(data.chatMessages) ? data.chatMessages : [],
     products: Array.isArray(data.products) ? data.products : [],
     sales: Array.isArray(data.sales) ? data.sales : []
   };

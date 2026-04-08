@@ -1,4 +1,16 @@
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 import EmptyState from "../components/EmptyState";
 import LoadingState from "../components/LoadingState";
@@ -6,12 +18,13 @@ import MetricCard from "../components/MetricCard";
 import SectionCard from "../components/SectionCard";
 import StatusPill from "../components/StatusPill";
 import api, { getErrorMessage } from "../lib/api";
-import { downloadCsv } from "../lib/exporters";
+import { downloadCsv, downloadExcel, parseCsv } from "../lib/exporters";
 import {
   formatCurrency,
   formatDate,
   formatNumber,
 } from "../lib/formatters";
+import { mapInventoryImportRows } from "../lib/importers";
 
 const initialForm = {
   name: "",
@@ -22,7 +35,24 @@ const initialForm = {
   price: "",
 };
 
+// Sample data for inventory visualization
+const sampleInventoryCharts = {
+  categoryDistribution: [
+    { name: "Beauty", count: 12 },
+    { name: "Clothing", count: 18 },
+    { name: "Electronics", count: 14 },
+    { name: "Accessories", count: 8 }
+  ],
+  stockStatusDistribution: [
+    { name: "Healthy", value: 35 },
+    { name: "Low Stock", value: 18 },
+    { name: "Out of Stock", value: 5 },
+    { name: "Critical", value: 2 }
+  ]
+};
+
 export default function InventoryPage() {
+  const importInputRef = useRef(null);
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState("");
@@ -30,6 +60,7 @@ export default function InventoryPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState(null);
 
   const deferredSearch = useDeferredValue(search);
@@ -38,8 +69,8 @@ export default function InventoryPage() {
     setLoading(true);
 
     try {
-      const response = await api.get("/store");
-      setProducts(response.data);
+      const storeResponse = await api.get("/store");
+      setProducts(storeResponse.data);
     } catch (error) {
       setNotice({
         type: "error",
@@ -154,7 +185,7 @@ export default function InventoryPage() {
     }
   }
 
-  function handleExport() {
+  function handleExportCsv() {
     downloadCsv(
       "inventory-report.csv",
       [
@@ -180,6 +211,87 @@ export default function InventoryPage() {
         formatDate(product.updatedAt),
       ])
     );
+  }
+
+  function handleExportExcel() {
+    downloadExcel(
+      "inventory-report.xls",
+      [
+        "Product",
+        "Category",
+        "SKU",
+        "Reorder Level",
+        "Quantity",
+        "Price",
+        "Inventory Value",
+        "Status",
+        "Updated At",
+      ],
+      filteredProducts.map((product) => [
+        product.name,
+        product.category,
+        product.sku,
+        product.reorderLevel,
+        product.quantity,
+        product.price,
+        product.totalValue,
+        product.status,
+        formatDate(product.updatedAt),
+      ]),
+      "Inventory"
+    );
+  }
+
+  function handleImportClick() {
+    importInputRef.current?.click();
+  }
+
+  async function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setImporting(true);
+    setNotice(null);
+
+    try {
+      const rows = parseCsv(await file.text());
+      const mappedRows = mapInventoryImportRows(rows);
+
+      if (!mappedRows.length) {
+        throw new Error("The selected CSV file does not contain import rows.");
+      }
+
+      const response = await api.post("/store/import", {
+        rows: mappedRows,
+      });
+      const summary = response.data;
+      const errorLines = (summary.errors || [])
+        .slice(0, 3)
+        .map((item) => `Row ${item.row}: ${item.message}`)
+        .join(" ");
+
+      setNotice({
+        type: summary.errors?.length ? "error" : "success",
+        text: [
+          `Inventory import finished. ${summary.created || 0} created, ${summary.restocked || 0} restocked.`,
+          summary.errors?.length
+            ? `${summary.errors.length} row(s) failed. ${errorLines}`
+            : "All rows were processed successfully.",
+        ].join(" "),
+      });
+      await loadProducts();
+    } catch (error) {
+      setNotice({
+        type: "error",
+        text: getErrorMessage(error, "Unable to import inventory CSV."),
+      });
+    } finally {
+      setImporting(false);
+    }
   }
 
   if (loading) {
@@ -324,11 +436,40 @@ export default function InventoryPage() {
           title="Inventory filters"
           eyebrow="Control View"
           actions={
-            <button type="button" className="button button-secondary" onClick={handleExport}>
-              Export CSV
-            </button>
+            <div className="section-button-group">
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleImportClick}
+                disabled={importing}
+              >
+                {importing ? "Importing..." : "Import CSV"}
+              </button>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleExportCsv}
+              >
+                Export CSV
+              </button>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleExportExcel}
+              >
+                Export Excel
+              </button>
+            </div>
           }
         >
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden-file-input"
+            onChange={handleImportFile}
+          />
+
           <div className="filter-grid">
             <label className="field-group">
               <span className="field-label">Search products</span>
@@ -358,6 +499,60 @@ export default function InventoryPage() {
           <div className="tag-row">
             <span className="meta-pill">{filteredProducts.length} visible items</span>
             <span className="meta-pill">Search updates stay responsive</span>
+          </div>
+
+          <p className="muted-copy">
+            Inventory import columns: Product, Category, SKU, Reorder Level, Quantity, Price.
+          </p>
+        </SectionCard>
+      </div>
+
+      <div className="content-grid two-column">
+        <SectionCard title="Products by Category" eyebrow="Category Breakdown (Sample)">
+          <div style={{ width: "100%", height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sampleInventoryCharts.categoryDistribution}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(127, 173, 187, 0.18)" />
+                <XAxis dataKey="name" stroke="#9eb6c3" fontSize={12} />
+                <YAxis stroke="#9eb6c3" fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(17, 35, 49, 0.9)",
+                    border: "1px solid #38c7b3",
+                    borderRadius: "8px",
+                  }}
+                  formatter={(value) => `${value} products`}
+                />
+                <Bar dataKey="count" fill="#38c7b3" radius={[8, 8, 0, 0]} name="Product Count" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Stock Status" eyebrow="Inventory Health (Sample)">
+          <div style={{ width: "100%", height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={sampleInventoryCharts.stockStatusDistribution}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }) => `${name}: ${value}`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {sampleInventoryCharts.stockStatusDistribution.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={["#38c7b3", "#ff8f3d", "#ff6f61", "#9eb6c3"][index % 4]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => `${value} items`} />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </SectionCard>
       </div>

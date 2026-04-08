@@ -1,4 +1,7 @@
 const crypto = require("crypto");
+const bcrypt = require("bcrypt");
+const speakeasy = require("speakeasy");
+const QRCode = require("qrcode");
 
 const { createHttpError } = require("./errors");
 
@@ -202,7 +205,9 @@ function createUserSession(user) {
     sub: user.id,
     email: user.email,
     name: user.name,
-    picture: user.picture
+    picture: user.picture,
+    role: user.role || "admin",
+    workspaceName: user.workspaceName || ""
   };
 
   return {
@@ -211,9 +216,61 @@ function createUserSession(user) {
       id: user.id,
       email: user.email,
       name: user.name,
-      picture: user.picture
+      picture: user.picture,
+      role: user.role || "admin",
+      workspaceName: user.workspaceName || ""
     }
   };
+}
+
+// Password authentication functions
+async function hashPassword(password) {
+  const saltRounds = 10;
+  return bcrypt.hash(password, saltRounds);
+}
+
+async function verifyPassword(password, hash) {
+  return bcrypt.compare(password, hash);
+}
+
+// TOTP authentication functions
+function generateTotpSecret(email) {
+  return speakeasy.generateSecret({
+    name: `Retail Intelligence (${email})`,
+    issuer: "Retail Intelligence",
+    length: 32
+  });
+}
+
+async function generateQRCode(secret) {
+  return QRCode.toDataURL(secret.otpauth_url);
+}
+
+function generateBackupCodes(count = 10) {
+  const codes = [];
+  for (let i = 0; i < count; i++) {
+    const code = crypto.randomBytes(4).toString("hex").toUpperCase();
+    codes.push(code);
+  }
+  return codes;
+}
+
+async function hashBackupCode(code) {
+  const saltRounds = 10;
+  return bcrypt.hash(code, saltRounds);
+}
+
+async function verifyBackupCode(code, hash) {
+  return bcrypt.compare(code, hash);
+}
+
+function verifyTotpToken(token, secret) {
+  return speakeasy.totp.verify({
+    secret,
+    encoding: "base32",
+    token,
+    window: 2 // Allow 2 time windows (±30 seconds)
+  });
 }
 
 module.exports = {
@@ -221,5 +278,13 @@ module.exports = {
   getAuthenticatedUser,
   requireAuth,
   verifyGoogleCredential,
-  verifySession
+  verifySession,
+  hashPassword,
+  verifyPassword,
+  generateTotpSecret,
+  generateQRCode,
+  generateBackupCodes,
+  hashBackupCode,
+  verifyBackupCode,
+  verifyTotpToken
 };

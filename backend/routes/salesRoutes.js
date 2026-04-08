@@ -1,8 +1,9 @@
 const express = require("express");
 
 const asyncHandler = require("../lib/asyncHandler");
+const { createHttpError } = require("../lib/errors");
 const { validateSalePayload } = require("../lib/validators");
-const { createSale, listSales } = require("../services/salesService");
+const { createSale, importSales, listSales } = require("../services/salesService");
 
 const router = express.Router();
 
@@ -30,5 +31,22 @@ router.get(
 
 router.post("/", createSaleHandler);
 router.post("/add", createSaleHandler);
+router.post(
+  "/import",
+  asyncHandler(async (req, res) => {
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+
+    if (!rows.length) {
+      throw createHttpError(400, "Import rows are required.");
+    }
+
+    const summary = await importSales(rows, {
+      ownerId: req.user.sub,
+      ownerEmail: req.user.email
+    });
+
+    res.json(summary);
+  })
+);
 
 module.exports = router;

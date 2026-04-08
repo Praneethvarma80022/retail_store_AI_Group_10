@@ -61,6 +61,22 @@ function parseOptionalText(value, maxLength = 80) {
   return normalized;
 }
 
+function parseOptionalDate(value, field = "Date") {
+  const normalized = normalizeText(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  const parsed = new Date(normalized);
+
+  if (Number.isNaN(parsed.getTime())) {
+    throw createHttpError(400, `${field} is invalid.`);
+  }
+
+  return parsed.toISOString();
+}
+
 function buildSkuFromName(name) {
   const normalized = normalizeText(name)
     .toUpperCase()
@@ -112,7 +128,8 @@ function validateSalePayload(payload) {
     quantity: parseNumber(payload?.quantity, "Quantity", {
       integer: true,
       min: 1
-    })
+    }),
+    date: parseOptionalDate(payload?.date, "Sale date")
   };
 }
 
@@ -120,6 +137,7 @@ module.exports = {
   buildSkuFromName,
   escapeRegex,
   normalizeText,
+  parseOptionalDate,
   parseOptionalText,
   validateProductPayload,
   validateSalePayload

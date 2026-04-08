@@ -1,4 +1,16 @@
 import { useEffect, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 import EmptyState from "../components/EmptyState";
 import LoadingState from "../components/LoadingState";
@@ -35,13 +47,33 @@ export default function RecommendationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Sample data for visualization charts
+  const sampleRecommendationMetrics = {
+    top: [
+      { name: "Product A", confidence: 95 },
+      { name: "Product B", confidence: 87 },
+      { name: "Product C", confidence: 82 },
+      { name: "Product D", confidence: 78 },
+      { name: "Product E", confidence: 72 },
+      { name: "Product F", confidence: 68 },
+      { name: "Product G", confidence: 65 },
+      { name: "Product H", confidence: 60 }
+    ],
+    types: [
+      { name: "Promotion", value: 35 },
+      { name: "Restock", value: 30 },
+      { name: "Bundle", value: 20 },
+      { name: "Upsell", value: 15 }
+    ]
+  };
+
   async function loadRecommendations() {
     setLoading(true);
     setError("");
 
     try {
-      const response = await api.get("/analytics/recommendations");
-      setData(response.data);
+      const analyticsResponse = await api.get("/analytics/recommendations");
+      setData(analyticsResponse.data);
     } catch (requestError) {
       setError(
         getErrorMessage(
@@ -153,6 +185,56 @@ export default function RecommendationsPage() {
               description="As the catalog grows, the system will suggest more complementary product pairings."
             />
           )}
+        </SectionCard>
+      </div>
+
+      <div className="content-grid two-column">
+        <SectionCard title="Recommendation Confidence" eyebrow="Prediction Strength (Sample)">
+          <div style={{ width: "100%", height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sampleRecommendationMetrics.top}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(127, 173, 187, 0.18)" />
+                <XAxis dataKey="name" stroke="#9eb6c3" fontSize={11} />
+                <YAxis stroke="#9eb6c3" fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(17, 35, 49, 0.9)",
+                    border: "1px solid #c4b5fd",
+                    borderRadius: "8px",
+                  }}
+                  formatter={(value) => `${value}%`}
+                />
+                <Bar dataKey="confidence" fill="#c4b5fd" radius={[8, 8, 0, 0]} name="Confidence %" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Recommendation Types" eyebrow="Action Distribution (Sample)">
+          <div style={{ width: "100%", height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={sampleRecommendationMetrics.types}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }) => `${name}: ${value}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {sampleRecommendationMetrics.types.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={["#38c7b3", "#ff8f3d", "#ff6f61", "#9eb6c3", "#c4b5fd"][index % 5]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => `${value}%`} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </SectionCard>
       </div>
 

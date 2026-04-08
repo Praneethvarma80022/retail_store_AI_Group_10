@@ -8,7 +8,7 @@ import SectionCard from "../components/SectionCard";
 import api, { getErrorMessage } from "../lib/api";
 import { formatCurrency, formatNumber } from "../lib/formatters";
 
-const STORAGE_KEY = "shop-pilot-chat-v2";
+const VOICE_REPLY_STORAGE_KEY = "shop-pilot-voice-reply-v1";
 
 function createWelcomeMessage(summary) {
   if (!summary) {
@@ -61,6 +61,30 @@ function parseMessageContent(content) {
   };
 }
 
+function getSpeechRecognition() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function getSpeechErrorMessage(errorCode) {
+  switch (errorCode) {
+    case "audio-capture":
+      return "Microphone access is unavailable on this device.";
+    case "network":
+      return "Voice recognition needs a stable network connection.";
+    case "not-allowed":
+    case "service-not-allowed":
+      return "Allow microphone access to use voice commands.";
+    case "no-speech":
+      return "No voice was detected. Try speaking a little closer to the mic.";
+    default:
+      return "Voice recognition could not complete. Please try again.";
+  }
+}
+
 function sanitizeAssistantMessage(message) {
   if (message?.role !== "assistant") {
     return message;
@@ -70,6 +94,22 @@ function sanitizeAssistantMessage(message) {
     ...message,
     content: String(message.content || "").replace(/\bCodex\b/gi, "Retail Intelligence Assistant"),
   };
+}
+
+function getStoredVoiceReplyPreference() {
+  try {
+    return localStorage.getItem(VOICE_REPLY_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function formatSpeechText(content) {
+  return String(content || "")
+    .replace(/^[-*]\s*/gm, "")
+    .replace(/\n+/g, ". ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function MessageBody({ content, role }) {
@@ -104,42 +144,65 @@ export default function AssistantPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const chatStreamRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const inputValueRef = useRef("");
+  const transcriptRef = useRef("");
+  const manualStopRef = useRef(false);
+  const sendMessageRef = useRef(() => {});
+  const speechSynthesisRef = useRef(null);
 
   const [summary, setSummary] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [capabilities, setCapabilities] = useState([]);
-  const [messages, setMessages] = useState(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored).map(sanitizeAssistantMessage) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState("");
+  const [voiceDraft, setVoiceDraft] = useState("");
+  const [voiceReplySupported, setVoiceReplySupported] = useState(false);
+  const [voiceReplyEnabled, setVoiceReplyEnabled] = useState(
+    getStoredVoiceReplyPreference()
+  );
 
   async function loadAssistant() {
     setLoading(true);
+    setError("");
 
     try {
-      const [summaryResponse, suggestionResponse] = await Promise.all([
+      const [summaryResult, suggestionResult, historyResult] = await Promise.allSettled([
         api.get("/analytics/overview"),
         api.get("/ai/suggestions"),
+        api.get("/ai/history"),
       ]);
 
-      setSummary(summaryResponse.data);
+      if (summaryResult.status !== "fulfilled") {
+        throw summaryResult.reason;
+      }
+
+      const summaryData = summaryResult.value.data;
+      const suggestionData =
+        suggestionResult.status === "fulfilled" ? suggestionResult.value.data : null;
+      const historyData =
+        historyResult.status === "fulfilled" ? historyResult.value.data : null;
+
+      setSummary(summaryData);
       setSuggestions(
-        suggestionResponse.data?.prompts ||
-          summaryResponse.data?.assistantPrompts ||
+        suggestionData?.prompts ||
+          summaryData?.assistantPrompts ||
           []
       );
-      setCapabilities(suggestionResponse.data?.capabilities || []);
+      setCapabilities(suggestionData?.capabilities || []);
 
-      setMessages((current) =>
-        current.length ? current : [createWelcomeMessage(summaryResponse.data)]
+      const historyMessages = (historyData?.messages || []).map(sanitizeAssistantMessage);
+
+      setMessages(
+        historyMessages.length
+          ? historyMessages
+          : [createWelcomeMessage(summaryData)]
       );
     } catch (requestError) {
       setError(
@@ -158,8 +221,8 @@ export default function AssistantPage() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-20)));
-  }, [messages]);
+    inputValueRef.current = input;
+  }, [input]);
 
   useEffect(() => {
     const chatStream = chatStreamRef.current;
@@ -182,6 +245,169 @@ export default function AssistantPage() {
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      setVoiceReplySupported(false);
+      setVoiceReplyEnabled(false);
+      return undefined;
+    }
+
+    speechSynthesisRef.current = window.speechSynthesis;
+    setVoiceReplySupported(true);
+
+    return () => {
+      window.speechSynthesis.cancel();
+      speechSynthesisRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        VOICE_REPLY_STORAGE_KEY,
+        voiceReplySupported && voiceReplyEnabled ? "true" : "false"
+      );
+    } catch {
+      // Ignore preference persistence issues.
+    }
+  }, [voiceReplyEnabled, voiceReplySupported]);
+
+  useEffect(() => {
+    const SpeechRecognition = getSpeechRecognition();
+
+    if (!SpeechRecognition) {
+      setVoiceSupported(false);
+      return undefined;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-IN";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      manualStopRef.current = false;
+      transcriptRef.current = "";
+      setVoiceDraft("");
+      setVoiceStatus("Listening... Speak your question now.");
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event) => {
+      let finalTranscript = transcriptRef.current;
+      let interimTranscript = "";
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const text = String(result?.[0]?.transcript || "").trim();
+
+        if (!text) {
+          continue;
+        }
+
+        if (result.isFinal) {
+          finalTranscript = `${finalTranscript} ${text}`.trim();
+        } else {
+          interimTranscript = `${interimTranscript} ${text}`.trim();
+        }
+      }
+
+      transcriptRef.current = finalTranscript;
+      setVoiceDraft([finalTranscript, interimTranscript].filter(Boolean).join(" "));
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === "aborted" && manualStopRef.current) {
+        return;
+      }
+
+      setVoiceStatus(getSpeechErrorMessage(event.error));
+      setIsListening(false);
+      setVoiceDraft("");
+      transcriptRef.current = "";
+    };
+
+    recognition.onend = () => {
+      const finalTranscript = String(transcriptRef.current || "").trim();
+
+      setIsListening(false);
+      setVoiceDraft("");
+      transcriptRef.current = "";
+
+      if (manualStopRef.current) {
+        manualStopRef.current = false;
+
+        if (!finalTranscript) {
+          setVoiceStatus("Voice capture stopped.");
+          return;
+        }
+      }
+
+      if (!finalTranscript) {
+        setVoiceStatus("No voice was captured. Try again.");
+        return;
+      }
+
+      const existingDraft = inputValueRef.current.trim();
+
+      if (existingDraft) {
+        setInput(`${existingDraft} ${finalTranscript}`.trim());
+        setVoiceStatus("Voice text was added to your draft.");
+        return;
+      }
+
+      setVoiceStatus("Voice question captured and sent.");
+      sendMessageRef.current(finalTranscript);
+    };
+
+    recognitionRef.current = recognition;
+    setVoiceSupported(true);
+    setVoiceStatus("");
+
+    return () => {
+      manualStopRef.current = true;
+
+      try {
+        recognition.abort();
+      } catch {
+        // Ignore cleanup failures from inactive recognizers.
+      }
+
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  function speakAssistantReply(content, force = false) {
+    if ((!voiceReplyEnabled && !force) || !voiceReplySupported) {
+      return;
+    }
+
+    const speechSynthesis = speechSynthesisRef.current;
+
+    if (!speechSynthesis) {
+      return;
+    }
+
+    const message = formatSpeechText(content);
+
+    if (!message) {
+      return;
+    }
+
+    speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.lang = "en-IN";
+    speechSynthesis.speak(utterance);
+  }
+
+  function stopAssistantSpeech() {
+    speechSynthesisRef.current?.cancel();
+  }
 
   async function sendMessage(overrideMessage) {
     const nextMessage = (overrideMessage ?? input).trim();
@@ -218,6 +444,7 @@ export default function AssistantPage() {
           matchedCustomers: response.data.matchedCustomers || [],
         },
       ]);
+      speakAssistantReply(response.data.reply);
 
       if (response.data.suggestedPrompts?.length) {
         setSuggestions(response.data.suggestedPrompts);
@@ -250,16 +477,83 @@ export default function AssistantPage() {
     }
   }
 
+  sendMessageRef.current = sendMessage;
+
   function handleSubmit(event) {
     event.preventDefault();
     sendMessage();
   }
 
+  function handleVoiceToggle() {
+    if (sending) {
+      return;
+    }
+
+    const recognition = recognitionRef.current;
+
+    if (!recognition) {
+      setVoiceStatus("Voice input is not available in this browser.");
+      return;
+    }
+
+    if (isListening) {
+      manualStopRef.current = true;
+      recognition.stop();
+      return;
+    }
+
+    transcriptRef.current = "";
+    manualStopRef.current = false;
+    setVoiceDraft("");
+    setVoiceStatus("");
+    setError("");
+
+    try {
+      recognition.start();
+    } catch {
+      setVoiceStatus("Voice recognition is already running. Please wait a moment.");
+    }
+  }
+
   function clearConversation() {
+    if (isListening && recognitionRef.current) {
+      manualStopRef.current = true;
+      recognitionRef.current.stop();
+    }
+
+    stopAssistantSpeech();
+
     const welcome = createWelcomeMessage(summary);
     setMessages([welcome]);
     setError("");
-    localStorage.removeItem(STORAGE_KEY);
+    setVoiceStatus("");
+    setVoiceDraft("");
+
+    api.delete("/ai/history").catch(() => null);
+  }
+
+  function handleVoiceReplyToggle() {
+    if (!voiceReplySupported) {
+      return;
+    }
+
+    setVoiceReplyEnabled((current) => {
+      const nextValue = !current;
+
+      if (!nextValue) {
+        stopAssistantSpeech();
+      } else {
+        const latestAssistantMessage = [...messages]
+          .reverse()
+          .find((message) => message.role === "assistant");
+
+        if (latestAssistantMessage) {
+          speakAssistantReply(latestAssistantMessage.content, true);
+        }
+      }
+
+      return nextValue;
+    });
   }
 
   if (loading) {
@@ -372,13 +666,25 @@ export default function AssistantPage() {
           title="Retail copilot"
           eyebrow="Conversation"
           actions={
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={clearConversation}
-            >
-              Clear chat
-            </button>
+            <div className="section-button-group">
+              <button
+                type="button"
+                className={`button button-secondary${
+                  voiceReplyEnabled ? " is-active-toggle" : ""
+                }`}
+                onClick={handleVoiceReplyToggle}
+                disabled={!voiceReplySupported}
+              >
+                {voiceReplyEnabled ? "Voice replies on" : "Voice replies off"}
+              </button>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={clearConversation}
+              >
+                Clear chat
+              </button>
+            </div>
           }
           className="chat-card"
         >
@@ -433,6 +739,16 @@ export default function AssistantPage() {
                       Source: {message.source}
                     </span>
                   ) : null}
+
+                  {message.role === "assistant" && voiceReplySupported ? (
+                    <button
+                      type="button"
+                      className="meta-pill chat-meta-pill chat-speak-button"
+                      onClick={() => speakAssistantReply(message.content, true)}
+                    >
+                      Speak
+                    </button>
+                  ) : null}
                 </div>
               </article>
             ))}
@@ -470,17 +786,44 @@ export default function AssistantPage() {
               }}
             />
 
+            {voiceStatus || voiceDraft ? (
+              <div className={`chat-voice-panel${isListening ? " is-listening" : ""}`}>
+                <p className="chat-voice-status">{voiceStatus}</p>
+                {voiceDraft ? <p className="chat-voice-preview">{voiceDraft}</p> : null}
+              </div>
+            ) : null}
+
             <div className="chat-form-footer">
               <p className="muted-copy">
-                Press Enter to send. Use Shift+Enter for a new line.
+                Press Enter to send. Use Shift+Enter for a new line. Voice works best in Chrome or Edge.
               </p>
-              <button
-                type="submit"
-                className="button button-primary"
-                disabled={sending}
-              >
-                {sending ? "Sending..." : "Send question"}
-              </button>
+              <div className="chat-composer-actions">
+                <button
+                  type="button"
+                  className={`button button-secondary chat-voice-button${
+                    isListening ? " is-listening" : ""
+                  }`}
+                  onClick={handleVoiceToggle}
+                  disabled={sending || !voiceSupported}
+                  aria-pressed={isListening}
+                  title={
+                    voiceSupported
+                      ? isListening
+                        ? "Stop voice input"
+                        : "Start voice input"
+                      : "Voice input is not supported in this browser"
+                  }
+                >
+                  {isListening ? "Stop voice" : "Start voice"}
+                </button>
+                <button
+                  type="submit"
+                  className="button button-primary"
+                  disabled={sending}
+                >
+                  {sending ? "Sending..." : "Send question"}
+                </button>
+              </div>
             </div>
           </form>
         </SectionCard>

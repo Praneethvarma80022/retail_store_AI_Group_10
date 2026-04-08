@@ -1,10 +1,12 @@
 const express = require("express");
 const asyncHandler = require("../lib/asyncHandler");
+const { createHttpError } = require("../lib/errors");
 const { validateProductPayload } = require("../lib/validators");
 const {
   createProduct,
   deleteProduct,
   getProductById,
+  importProducts,
   listAvailableProducts,
   listProducts,
   updateProduct
@@ -62,6 +64,23 @@ router.get(
 
 router.post("/", createProductHandler);
 router.post("/add", createProductHandler);
+router.post(
+  "/import",
+  asyncHandler(async (req, res) => {
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+
+    if (!rows.length) {
+      throw createHttpError(400, "Import rows are required.");
+    }
+
+    const summary = await importProducts(rows, {
+      ownerId: req.user.sub,
+      ownerEmail: req.user.email
+    });
+
+    res.json(summary);
+  })
+);
 
 router.put(
   "/:id",

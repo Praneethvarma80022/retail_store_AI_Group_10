@@ -10,6 +10,11 @@ const {
 } = require("../lib/assistantEngine");
 const { createHttpError } = require("../lib/errors");
 const { normalizeText } = require("../lib/validators");
+const {
+  appendChatMessages,
+  clearChatMessages,
+  listChatMessages
+} = require("../services/chatHistoryService");
 const { listSales } = require("../services/salesService");
 const { listProducts } = require("../services/storeService");
 
@@ -19,7 +24,6 @@ const CHAT_HISTORY_LIMIT = 8;
 const CACHE_LIMIT = 60;
 
 const cache = new Map();
-const chatHistoryByUser = new Map();
 
 function setCache(key, value) {
   if (!key) return;
@@ -36,23 +40,8 @@ function setCache(key, value) {
   }
 }
 
-function getUserHistory(ownerId) {
-  if (!chatHistoryByUser.has(ownerId)) {
-    chatHistoryByUser.set(ownerId, []);
-  }
-
-  return chatHistoryByUser.get(ownerId);
-}
-
-function pushChatMessage(ownerId, role, content) {
-  if (!content) return;
-
-  const chatHistory = getUserHistory(ownerId);
-  chatHistory.push({ role, content });
-
-  while (chatHistory.length > CHAT_HISTORY_LIMIT) {
-    chatHistory.shift();
-  }
+function buildHistoryText(messages) {
+  return messages.map((item) => `${item.role}: ${item.content}`).join("\n");
 }
 
 async function getRetailContext(user) {
@@ -76,6 +65,41 @@ router.get(
   })
 );
 
+router.get(
+  "/history",
+  asyncHandler(async (req, res) => {
+    const history = await listChatMessages({
+      ownerId: req.user.sub,
+      ownerEmail: req.user.email,
+      limit: 24
+    });
+
+    res.json({
+      messages: history
+    });
+  })
+);
+
+router.delete(
+  "/history",
+  asyncHandler(async (req, res) => {
+    const deletedCount = await clearChatMessages({
+      ownerId: req.user.sub,
+      ownerEmail: req.user.email
+    });
+
+    for (const key of cache.keys()) {
+      if (String(key).startsWith(`${req.user.sub}::`)) {
+        cache.delete(key);
+      }
+    }
+
+    res.json({
+      deletedCount
+    });
+  })
+);
+
 router.post(
   "/chat",
   asyncHandler(async (req, res) => {
@@ -87,10 +111,20 @@ router.post(
 
     const context = await getRetailContext(req.user);
     const geminiStatus = getGeminiStatus();
+    const historyMessages = await listChatMessages({
+      ownerId: req.user.sub,
+      ownerEmail: req.user.email,
+      limit: CHAT_HISTORY_LIMIT
+    });
+    const historyText = buildHistoryText(historyMessages);
+    const historySignature = historyMessages
+      .map((item) => `${item.role}:${item.content}`)
+      .join("|")
+      .slice(-400);
     const engineVersion = geminiStatus.configured
       ? `gemini:${geminiStatus.model}`
       : "rules";
-    const cacheKey = `${engineVersion}::${rawMessage.toLowerCase()}::${context.dataVersion || "live"}`;
+    const cacheKey = `${req.user.sub}::${engineVersion}::${rawMessage.toLowerCase()}::${context.dataVersion || "live"}::${historySignature}`;
     const sharedPayload = {
       suggestedPrompts: getAssistantPrompts(context),
       capabilities: ASSISTANT_CAPABILITIES,
@@ -107,22 +141,37 @@ router.post(
       });
     }
 
-    pushChatMessage(req.user.sub, "user", rawMessage);
-
-    const historyText = getUserHistory(req.user.sub)
-      .map((item) => `${item.role}: ${item.content}`)
-      .join("\n");
-
     const result = await answerRetailQuestion(rawMessage, context, historyText);
 
-    pushChatMessage(req.user.sub, "assistant", result.reply);
+    const generatedAt = new Date().toISOString();
+    await appendChatMessages(
+      [
+        {
+          role: "user",
+          content: rawMessage
+        },
+        {
+          role: "assistant",
+          content: result.reply,
+          source: result.source,
+          intent: result.intent,
+          matchedProducts: result.matchedProducts || [],
+          matchedCustomers: result.matchedCustomers || []
+        }
+      ],
+      {
+        ownerId: req.user.sub,
+        ownerEmail: req.user.email
+      }
+    );
+
     setCache(cacheKey, {
       reply: result.reply,
       source: result.source,
       intent: result.intent,
       matchedProducts: result.matchedProducts || [],
       matchedCustomers: result.matchedCustomers || [],
-      generatedAt: new Date().toISOString()
+      generatedAt
     });
 
     res.json({
@@ -131,7 +180,7 @@ router.post(
       intent: result.intent,
       matchedProducts: result.matchedProducts || [],
       matchedCustomers: result.matchedCustomers || [],
-      generatedAt: new Date().toISOString(),
+      generatedAt,
       ...sharedPayload
     });
   })

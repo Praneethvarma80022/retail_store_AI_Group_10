@@ -1,4 +1,16 @@
 import { useEffect, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 import EmptyState from "../components/EmptyState";
 import LoadingState from "../components/LoadingState";
@@ -11,6 +23,22 @@ const initialForm = {
   customerName: "",
   type: "availability",
   productId: "",
+};
+
+// Sample data for customer visualization
+const sampleCustomerCharts = {
+  ageDistribution: [
+    { range: "18-25", count: 15 },
+    { range: "26-35", count: 28 },
+    { range: "36-45", count: 18 },
+    { range: "46-55", count: 12 },
+    { range: "55+", count: 7 }
+  ],
+  genderDistribution: [
+    { name: "Female", value: 55 },
+    { name: "Male", value: 40 },
+    { name: "Other", value: 5 }
+  ]
 };
 
 export default function CustomerServicePage() {
@@ -220,6 +248,56 @@ export default function CustomerServicePage() {
               description="Choose a reply type and product, then generate a ready-to-send customer message."
             />
           )}
+        </SectionCard>
+      </div>
+
+      <div className="content-grid two-column">
+        <SectionCard title="Customer Age Distribution" eyebrow="Demographic Insight (Sample)">
+          <div style={{ width: "100%", height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sampleCustomerCharts.ageDistribution}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(127, 173, 187, 0.18)" />
+                <XAxis dataKey="range" stroke="#9eb6c3" fontSize={12} />
+                <YAxis stroke="#9eb6c3" fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(17, 35, 49, 0.9)",
+                    border: "1px solid #9eb6c3",
+                    borderRadius: "8px",
+                  }}
+                  formatter={(value) => `${value} customers`}
+                />
+                <Bar dataKey="count" fill="#9eb6c3" radius={[8, 8, 0, 0]} name="Customer Count" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Gender Distribution" eyebrow="Customer Composition (Sample)">
+          <div style={{ width: "100%", height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={sampleCustomerCharts.genderDistribution}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }) => `${name}: ${value}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {sampleCustomerCharts.genderDistribution.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={["#ff6f61", "#38c7b3", "#9eb6c3"][index % 3]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => `${value}%`} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </SectionCard>
       </div>
 

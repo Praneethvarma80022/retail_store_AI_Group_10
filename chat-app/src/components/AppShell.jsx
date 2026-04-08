@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useState } from "react";
 import { useAuth } from "../context/useAuth";
 
 const navigation = [
@@ -14,7 +15,10 @@ const navigation = [
     label: "Sales",
     path: "/sales",
   },
- 
+  {
+    label: "Forecasting",
+    path: "/forecasting",
+  },
   {
     label: "Recommendations",
     path: "/recommendations",
@@ -64,6 +68,7 @@ function resolveCopy(pathname) {
 }
 
 export default function AppShell() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const { signOut, user } = useAuth();
   const copy = resolveCopy(location.pathname);
@@ -99,6 +104,7 @@ export default function AppShell() {
               className={({ isActive }) =>
                 `nav-item${isActive ? " is-active" : ""}`
               }
+              onClick={() => setMobileMenuOpen(false)}
             >
               <span className="nav-label">{item.label}</span>
             </NavLink>
@@ -106,8 +112,50 @@ export default function AppShell() {
         </nav>
       </aside>
 
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className="mobile-menu-overlay" onClick={() => setMobileMenuOpen(false)}>
+          <div className="mobile-menu-panel" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="mobile-menu-close"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              ✕
+            </button>
+            <h3 className="mobile-menu-title">Menu</h3>
+            <nav className="mobile-menu-list">
+              {navigation.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end={item.path === "/"}
+                  className={({ isActive }) =>
+                    `mobile-menu-item${isActive ? " is-active" : ""}`
+                  }
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
+        </div>
+      )}
+
       <div className="main-column">
         <header className="topbar card-surface">
+          {/* Mobile Menu Button */}
+          <button
+            className="mobile-menu-btn"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle menu"
+            title="Open Menu"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+
           <div>
             <h2 className="page-title">{copy.title}</h2>
           </div>
@@ -117,6 +165,14 @@ export default function AppShell() {
               <span className="meta-pill user-pill">
                 {user.picture ? <img src={user.picture} alt="" /> : null}
                 {user.name || user.email}
+              </span>
+            ) : null}
+            {user?.workspaceName ? (
+              <span className="meta-pill">{user.workspaceName}</span>
+            ) : null}
+            {user?.role ? (
+              <span className="meta-pill meta-pill-strong">
+                {user.role === "admin" ? "Admin" : "Member"}
               </span>
             ) : null}
             <span className="meta-pill">{dateLabel}</span>

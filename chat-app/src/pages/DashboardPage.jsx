@@ -1,5 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 import EmptyState from "../components/EmptyState";
 import LoadingState from "../components/LoadingState";
@@ -7,13 +22,16 @@ import MetricCard from "../components/MetricCard";
 import SectionCard from "../components/SectionCard";
 import StatusPill from "../components/StatusPill";
 import TrendBars from "../components/TrendBars";
+import { useAuth } from "../context/useAuth";
 import api, { getErrorMessage } from "../lib/api";
 import { formatCurrency, formatDate, formatNumber } from "../lib/formatters";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [summary, setSummary] = useState(null);
   const [health, setHealth] = useState(null);
+  const [demoData, setDemoData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -22,13 +40,17 @@ export default function DashboardPage() {
     setError("");
 
     try {
-      const [summaryResponse, healthResponse] = await Promise.all([
+      const [summaryResponse, healthResponse, demoResponse] = await Promise.all([
         api.get("/analytics/overview"),
         api.get("/health"),
+        api.get("/demo/metrics").catch(() => null),
       ]);
 
       setSummary(summaryResponse.data);
       setHealth(healthResponse.data);
+      if (demoResponse) {
+        setDemoData(demoResponse.data);
+      }
     } catch (requestError) {
       setError(
         getErrorMessage(
@@ -130,6 +152,11 @@ export default function DashboardPage() {
             <span className="meta-pill">
               {health?.aiConfigured ? "Gemini connected" : "Rules active"}
             </span>
+            {summary?.alerts?.length ? (
+              <span className="meta-pill">
+                {formatNumber(summary.alerts.length)} active alerts
+              </span>
+            ) : null}
             <span className="meta-pill">Updated {formatDate(summary?.generatedAt)}</span>
           </div>
         </div>
@@ -139,6 +166,61 @@ export default function DashboardPage() {
         {metrics.map((metric) => (
           <MetricCard key={metric.label} {...metric} />
         ))}
+      </div>
+
+      <div className="content-grid two-column">
+        <SectionCard title="Attention needed" eyebrow="Alerts">
+          {summary?.alerts?.length ? (
+            <div className="insight-list">
+              {summary.alerts.map((alert) => (
+                <article key={alert.id} className="insight-card">
+                  <div className="insight-header">
+                    <h4>{alert.title}</h4>
+                    <StatusPill value={alert.tone} tone={alert.tone} />
+                  </div>
+                  <p>{alert.description}</p>
+                  {alert.actionPath ? (
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={() => navigate(alert.actionPath)}
+                    >
+                      {alert.actionLabel || "Open"}
+                    </button>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No urgent alerts"
+              description="The store is currently in a healthy state with no major attention flags."
+            />
+          )}
+        </SectionCard>
+
+        <SectionCard title="Workspace profile" eyebrow="Access And Data">
+          <div className="insight-list">
+            <article className="insight-card">
+              <div className="insight-header">
+                <h4>Private workspace</h4>
+                <span className="meta-pill">{user?.workspaceName || "Workspace"}</span>
+              </div>
+              <p>
+                Your inventory, sales, customers, and chatbot answers stay isolated to your signed-in account.
+              </p>
+            </article>
+            <article className="insight-card">
+              <div className="insight-header">
+                <h4>Role-aware access</h4>
+                <span className="meta-pill">{user?.role === "admin" ? "Admin" : "Member"}</span>
+              </div>
+              <p>
+                The project now carries a workspace role profile for each signed-in user so account-level access is ready for future team expansion.
+              </p>
+            </article>
+          </div>
+        </SectionCard>
       </div>
 
       <div className="content-grid two-column">
@@ -359,6 +441,141 @@ export default function DashboardPage() {
               </p>
             </article>
           </div>
+        </SectionCard>
+      </div>
+
+      <div className="content-grid two-column">
+        <SectionCard title="Sales Trend Chart" eyebrow="Revenue Overview (Last 30 Days)">
+          {demoData?.analyticsCharts?.salesTrend?.data?.length > 0 ? (
+            <div style={{ width: "100%", height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={demoData.analyticsCharts.salesTrend.data}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#38c7b3" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#38c7b3" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(127, 173, 187, 0.18)" />
+                  <XAxis dataKey="date" stroke="#9eb6c3" fontSize={12} />
+                  <YAxis stroke="#9eb6c3" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(17, 35, 49, 0.9)",
+                      border: "1px solid #38c7b3",
+                      borderRadius: "8px",
+                    }}
+                    formatter={(value) => formatCurrency(value)}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="sales"
+                    stroke="#38c7b3"
+                    dot={{ fill: "#38c7b3", r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <EmptyState
+              title="No sales data"
+              description="Sales charts will appear once transactions are recorded."
+            />
+          )}
+        </SectionCard>
+
+        <SectionCard title="Category Distribution" eyebrow="Sales By Category">
+          {demoData?.analyticsCharts?.categoryDistribution?.length > 0 ? (
+            <div style={{ width: "100%", height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={demoData.analyticsCharts.categoryDistribution}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value }) => `${name}: ${value}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {demoData.analyticsCharts.categoryDistribution.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={["#38c7b3", "#ff8f3d", "#ff6f61", "#9eb6c3", "#c4b5fd"][index % 5]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => `${value}%`} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <EmptyState
+              title="No category data"
+              description="Category breakdown will appear once products are categorized and sold."
+            />
+          )}
+        </SectionCard>
+      </div>
+
+      <div className="content-grid two-column">
+        <SectionCard title="Hourly Sales Peaks" eyebrow="When Your Customers Shop">
+          {demoData?.analyticsCharts?.hourlyPeaks?.length > 0 ? (
+            <div style={{ width: "100%", height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={demoData.analyticsCharts.hourlyPeaks}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(127, 173, 187, 0.18)" />
+                  <XAxis dataKey="hour" stroke="#9eb6c3" fontSize={12} />
+                  <YAxis stroke="#9eb6c3" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(17, 35, 49, 0.9)",
+                      border: "1px solid #ff8f3d",
+                      borderRadius: "8px",
+                    }}
+                    formatter={(value) => formatCurrency(value)}
+                  />
+                  <Bar dataKey="sales" fill="#ff8f3d" radius={[8, 8, 0, 0]} name="Sales" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <EmptyState
+              title="No hourly data"
+              description="Peak hours will be identified once you have enough transaction data."
+            />
+          )}
+        </SectionCard>
+
+        <SectionCard title="Top Customers" eyebrow="Customer Value Focus">
+          {demoData?.customerInsights?.topCustomers?.length > 0 ? (
+            <div className="list-stack">
+              {demoData.customerInsights.topCustomers.slice(0, 5).map((customer, idx) => (
+                <article key={idx} className="list-card">
+                  <div>
+                    <h4>{customer.name}</h4>
+                    <p>{customer.purchases} purchases • Age: {customer.age}</p>
+                  </div>
+                  <div className="list-card-meta">
+                    <strong>{formatCurrency(customer.totalSpent)}</strong>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No customer data"
+              description="Top customers will appear as transaction history builds."
+            />
+          )}
         </SectionCard>
       </div>
     </div>

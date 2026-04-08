@@ -4,7 +4,7 @@ const Store = require("../models/Store");
 const { normalizeProduct, normalizeSale, roundCurrency } = require("../lib/analytics");
 const { isMongoReady } = require("../lib/db");
 const { createHttpError } = require("../lib/errors");
-const { escapeRegex, normalizeText } = require("../lib/validators");
+const { escapeRegex, normalizeText, validateSalePayload } = require("../lib/validators");
 const { createId, readLocalStore, writeLocalStore } = require("./fileStore");
 
 function sortSales(sales) {
@@ -62,6 +62,11 @@ async function createSale(payload, options = {}) {
   }
 
   const ownerId = String(options.ownerId);
+  const saleDate = payload.date ? new Date(payload.date) : new Date();
+
+  if (Number.isNaN(saleDate.getTime())) {
+    throw createHttpError(400, "Sale date is invalid.");
+  }
 
   if (isMongoReady()) {
     const product = payload.productId
@@ -96,7 +101,7 @@ async function createSale(payload, options = {}) {
         quantity: payload.quantity,
         unitPrice,
         totalPrice: roundCurrency(payload.quantity * unitPrice),
-        date: new Date()
+        date: saleDate
       });
 
       return {
@@ -136,7 +141,7 @@ async function createSale(payload, options = {}) {
     throw createHttpError(400, `Only ${product.quantity} units are available.`);
   }
 
-  const timestamp = new Date().toISOString();
+  const timestamp = saleDate.toISOString();
   const unitPrice = Number(product.price) || 0;
   product.quantity -= payload.quantity;
   product.totalPrice = roundCurrency(product.quantity * unitPrice);
@@ -167,7 +172,30 @@ async function createSale(payload, options = {}) {
   };
 }
 
+async function importSales(rows, options = {}) {
+  const items = Array.isArray(rows) ? rows : [];
+  const summary = {
+    imported: 0,
+    errors: []
+  };
+
+  for (let index = 0; index < items.length; index += 1) {
+    try {
+      await createSale(validateSalePayload(items[index]), options);
+      summary.imported += 1;
+    } catch (error) {
+      summary.errors.push({
+        row: index + 1,
+        message: error.message || "Unable to import sale row."
+      });
+    }
+  }
+
+  return summary;
+}
+
 module.exports = {
   createSale,
+  importSales,
   listSales
 };

@@ -1,0 +1,530 @@
+/* Mobile-First Responsive Design System */
+
+/* Viewport and Safe Area Handling */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Container Queries Support */
+@supports (container-type: inline-size) {
+  .app-container {
+    container-type: inline-size;
+  }
+}
+
+/* Responsive Grid System */
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1025px) {
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+/* Flexible Container */
+.container {
+  width: 100%;
+  padding: 0 1rem;
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0 0.75rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .container {
+    max-width: 1200px;
+  }
+}
+
+/* Navigation Responsive */
+nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (min-width: 769px) {
+  nav {
+    flex-direction: row;
+    gap: 1rem;
+  }
+}
+
+/* Card Responsive */
+.card {
+  padding: 1.25rem;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 1rem;
+    border-radius: 6px;
+  }
+}
+
+/* Modal and Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  z-index: 999;
+}
+
+@media (min-width: 769px) {
+  .modal-overlay {
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.modal {
+  background: var(--panel-strong);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  animation: slideUpMobile 0.3s ease-out;
+}
+
+@media (min-width: 769px) {
+  .modal {
+    border-radius: 12px;
+    animation: fadeIn 0.3s ease-out;
+  }
+}
+
+@keyframes slideUpMobile {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Sidebar/Navigation Drawer */
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 250px;
+  background: var(--panel-strong);
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  z-index: 998;
+}
+
+.sidebar.open {
+  transform: translateX(0);
+}
+
+@media (min-width: 769px) {
+  .sidebar {
+    position: relative;
+    width: auto;
+    height: auto;
+    transform: translateX(0);
+    background: transparent;
+  }
+}
+
+/* Toolbar/Header */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  gap: 0.5rem;
+}
+
+@media (max-width: 480px) {
+  .toolbar {
+    padding: 0.75rem;
+    gap: 0.25rem;
+  }
+}
+
+/* Floating Action Button */
+.fab {
+  position: fixed;
+  bottom: 2rem;
+  right: 1.5rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  z-index: 100;
+  touch-action: manipulation;
+}
+
+.fab:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 480px) {
+  .fab {
+    bottom: 1.5rem;
+    right: 1rem;
+    width: 52px;
+    height: 52px;
+  }
+}
+
+/* Tabs Responsive */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab {
+  padding: 1rem;
+  white-space: nowrap;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  transition: all 0.2s;
+}
+
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+@media (max-width: 480px) {
+  .tab {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Responsive Table */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.table-responsive table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-responsive th,
+.table-responsive td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.table-responsive th {
+  background: var(--panel-strong);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .table-responsive {
+    font-size: 0.85rem;
+  }
+
+  .table-responsive th,
+  .table-responsive td {
+    padding: 0.5rem;
+  }
+}
+
+/* Image Responsive */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+picture {
+  display: block;
+}
+
+/* Form Responsive */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  form {
+    gap: 1rem;
+  }
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+/* Loading Skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--panel) 25%, var(--panel-strong) 50%, var(--panel) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Tooltip */
+.tooltip {
+  position: relative;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  background: var(--panel-strong);
+  color: var(--text);
+  text-align: center;
+  padding: 0.5rem;
+  border-radius: 6px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+}
+
+.tooltip:hover .tooltip-text {
+  visibility: visible;
+}
+
+@media (max-width: 640px) {
+  .tooltip:hover .tooltip-text {
+    visibility: hidden;
+  }
+}
+
+/* Responsive Flex Layout */
+.flex-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 769px) {
+  .flex-responsive {
+    flex-direction: row;
+  }
+}
+
+/* Responsive Padding */
+.p-responsive {
+  padding: 1rem;
+}
+
+@media (max-width: 480px) {
+  .p-responsive {
+    padding: 0.75rem;
+  }
+}
+
+@media (min-width: 1025px) {
+  .p-responsive {
+    padding: 1.5rem;
+  }
+}
+
+/* Safe Area Insets */
+.safe-area {
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+/* No scrollbar on iOS */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+button,
+a {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Font Scaling for Mobile */
+@media (max-width: 480px) {
+  :root {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  :root {
+    font-size: 13px;
+  }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Notch/Cutout Support */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+}
+
+/* Orientation Changes */
+@media (orientation: portrait) {
+  body {
+    max-height: 100vh;
+  }
+}
+
+@media (orientation: landscape) {
+  body {
+    max-height: 100vh;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark Mode Preferences */
+@media (prefers-color-scheme: dark) {
+  body {
+    color-scheme: dark;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  body {
+    color-scheme: light;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: more) {
+  .card {
+    border-width: 2px;
+  }
+
+  button {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none;
+  }
+
+  body {
+    background: white;
+    color: black;
+  }
+}
